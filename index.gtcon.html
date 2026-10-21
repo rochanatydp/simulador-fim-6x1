@@ -205,7 +205,7 @@ details.adv .in{display:flex;flex-direction:column;gap:14px}
         <div><label for="interv">Intervalo (min)</label><input type="number" id="interv" value="60" min="0" step="5"></div>
       </div>
       <div class="gh">4 · Custos (opcional)</div>
-      <label class="chk"><input type="checkbox" id="he" checked><span>Comparar com manter as horas atuais e pagar o excedente como hora extra</span></label>
+      <label class="chk"><input type="checkbox" id="he" checked><span>Mostrar o custo se a empresa não alterar a jornada (horas acima do limite viram hora extra)</span></label>
       <div><label for="qtd">Empregados nesta situação</label><input type="number" id="qtd" value="1" min="1" step="1"></div>
       <details class="adv"><summary>Opções avançadas</summary><div class="in">
         <div><label for="prom">Data da promulgação</label><input type="date" id="prom" value="2026-10-16"></div>
@@ -319,7 +319,7 @@ details.adv .in{display:flex;flex-direction:column;gap:14px}
     var today=new Date(); today=new Date(today.getFullYear(),today.getMonth(),today.getDate());
     var pv=($('prom').value||'2026-10-16').split('-');
     var p0=new Date(+pv[0],+pv[1]-1,+pv[2]);
-    var d1=new Date(p0.getFullYear(),p0.getMonth(),p0.getDate()+60);
+    var d1=addMonths(p0,2);
     var d2=addMonths(p0,14);
     var now=today>=d2?2:today>=d1?1:0;
 
@@ -330,12 +330,12 @@ details.adv .in{display:flex;flex-direction:column;gap:14px}
     function cell(t,v,sub){return '<div class="st"><div class="t">'+t+'</div><div class="d">'+v+'</div><div class="s">'+sub+'</div></div>'}
     var sc=cell('Horas por dia',fm(s.daily),'5x2 · saída '+s.saida)
       +cell('Valor da hora',BRL.format(s.hora),pct(s.hora/ph[0].hora-1)+' vs hoje · divisor '+s.D)
-      +cell('Horas de equipe a repor',pct(ph[0].W/s.W-1),'horas/mês: '+s.worked.toFixed(1).replace('.',',')+' (hoje '+ph[0].worked.toFixed(1).replace('.',',')+')');
-    if(m.heOn) sc+=cell('Custo extra/mês com HE',BRL.format(s.extraHE),'ou '+BRL.format(s.extraRepo)+' repondo sem adicional');
+      +cell('Horas a cobrir com equipe',pct(ph[0].W/s.W-1),'horas/mês: '+s.worked.toFixed(1).replace('.',',')+' (hoje '+ph[0].worked.toFixed(1).replace('.',',')+')');
+    if(m.heOn) sc+=cell('Custo extra/mês em hora extra',BRL.format(s.extraHE),'ou '+BRL.format(s.extraRepo)+' se a equipe for ampliada');
     var entS=$('entrada').value||'08:00', ivS=Math.max(0,num('interv',60));
     var lead='Com <b>'+s.W+'h em 5x2</b>, o empregado trabalha <b>'+fm(s.daily)+' por dia</b>. Entrando às '+entS+(s.daily>6&&ivS>0?', com '+ivS+' min de intervalo,':',')+' sai às <b>'+s.saida+'</b>.';
     if(Math.abs(s.hora-ph[0].hora)>0.005) lead+=' O valor da hora passa a <b>'+BRL.format(s.hora)+'</b> ('+pct(s.hora/ph[0].hora-1)+').';
-    if(m.heOn&&s.ex>0) lead+=' Mantendo as horas atuais, o custo extra é de <b>'+BRL.format(s.extraHE)+' por mês</b>'+(m.qtd>1?' para '+m.qtd+' empregados':'')+'.';
+    if(m.heOn&&s.ex>0) lead+=' Sem alterar a jornada, o custo extra com hora extra é de <b>'+BRL.format(s.extraHE)+' por mês</b>'+(m.qtd>1?' para '+m.qtd+' empregados':'')+'.';
     $('simcard').innerHTML='<h2>Resultado para '+s.W+'h em 5x2</h2><p class="lead">'+lead+'</p><div class="stats">'+sc+'</div>';
 
     var ev=($('entrada').value||'08:00').split(':'), entM=(+ev[0])*60+(+ev[1]), ivM=Math.max(0,num('interv',60));
@@ -355,7 +355,7 @@ details.adv .in{display:flex;flex-direction:column;gap:14px}
       +(over?'Há dias acima de 8h: o texto aprovado só admite isso na transição até 42h; com 40h o limite volta a 8h por dia.':'Nenhum dia passa de 8h.')+'</p>';
 
     var tl=[['Promulgação',p0,'Marco inicial dos prazos',now===-1],
-      ['Etapa 1: 42h e 5x2',d1,'60 dias após a promulgação',now===1],
+      ['Etapa 1: 42h e 5x2',d1,'2 meses após a promulgação',now===1],
       ['Etapa 2: 40h',d2,'14 meses após a promulgação',now===2]];
     $('tl').innerHTML=tl.map(function(r,i){
       return '<div class="'+(((i===1&&now===1)||(i===2&&now===2))?'on':'')+'"><div class="t">'+r[0]+'</div><div class="d">'+dt(r[1])+'</div><div class="s">'+r[2]+' · '+rel(r[1],today)+'</div></div>';
@@ -385,14 +385,14 @@ details.adv .in{display:flex;flex-direction:column;gap:14px}
     rows+=G('Capacidade e custo da hora');
     rows+=R('Horas trabalhadas/mês',function(p){return p.worked.toFixed(1).replace('.',',')});
     rows+=R('Custo por hora trabalhada',function(p){return BRL.format(p.custoH)});
-    rows+=R('Horas de equipe a repor p/ manter a produção',function(p,i){return i===0?'—':'<span class="up">'+pct(ph[0].W/p.W-1)+'</span>'});
+    rows+=R('Horas a cobrir com mais equipe (manter a produção)',function(p,i){return i===0?'—':'<span class="up">'+pct(ph[0].W/p.W-1)+'</span>'});
     if(m.heOn){
-      rows+=G('Se mantiver as horas atuais ('+m.W0+'h/semana)');
+      rows+=G('Se a empresa não alterar a jornada ('+m.W0+'h/semana)');
       rows+=R('Horas extras por semana',function(p,i){return i===0?'—':fm(p.ex)});
       rows+=R('Horas extras por mês',function(p,i){return i===0?'—':fm(p.exm)});
       rows+=R('Hora extra + DSR (por empregado)',function(p,i){return i===0?'—':BRL.format(p.heVal+p.dsr)});
-      rows+=R('Custo extra/mês com HE',function(p,i){return i===0?'—':'<span class="up">'+BRL.format(p.extraHE)+'</span>'},'tot');
-      rows+=R('Custo extra repondo as horas, sem adicional',function(p,i){return i===0?'—':BRL.format(p.extraRepo)});
+      rows+=R('Custo extra/mês em hora extra',function(p,i){return i===0?'—':'<span class="up">'+BRL.format(p.extraHE)+'</span>'},'tot');
+      rows+=R('Se ampliar a equipe: custo extra, sem adicional de hora extra',function(p,i){return i===0?'—':BRL.format(p.extraRepo)});
       rows+=R('Custo mensal total ('+m.qtd+' emp.)',function(p){return BRL.format(p.total)},'tot');
       rows+=R('Variação vs hoje',function(p,i){return i===0?'—':'<span class="up">'+pct(p.total/m.base-1)+'</span>'});
     }
@@ -404,7 +404,7 @@ details.adv .in{display:flex;flex-direction:column;gap:14px}
       var l=['Fim da 6x1: simulação','Salário mensal: '+BRL.format(m.S)+' | Escala atual: '+m.W0+'h '+scaleName(m.d0),
         'Etapa 1 ('+dt(d1)+'): '+ph[1].W+'h, 5x2, '+fm(ph[1].daily)+'/dia, divisor '+ph[1].D+', hora '+BRL.format(ph[1].hora)+' ('+pct(ph[1].hora/h0-1)+')',
         'Etapa 2 ('+dt(d2)+'): '+ph[2].W+'h, 5x2, '+fm(ph[2].daily)+'/dia, divisor '+ph[2].D+', hora '+BRL.format(ph[2].hora)+' ('+pct(ph[2].hora/h0-1)+')'];
-      if(m.heOn) l.push('Mantendo '+m.W0+'h/sem: custo extra/mês de HE ('+m.qtd+' emp.): Etapa 1 '+BRL.format(ph[1].extraHE)+' | Etapa 2 '+BRL.format(ph[2].extraHE));
+      if(m.heOn) l.push('Sem alterar a jornada ('+m.W0+'h/sem): custo extra/mês em hora extra ('+m.qtd+' emp.): Etapa 1 '+BRL.format(ph[1].extraHE)+' | Etapa 2 '+BRL.format(ph[2].extraHE));
       return l.join('\n');
     };
   }
@@ -442,7 +442,7 @@ details.adv .in{display:flex;flex-direction:column;gap:14px}
       +'<h2>Prazos</h2><div class="tl">'+$('tl').innerHTML+'</div>'
       +'<h2>Horário sugerido</h2>'+$('hcard').querySelector('table').outerHTML
       +'<h2>Comparativo</h2>'+$('tbl').outerHTML
-      +'<p class="m" style="margin-top:18px">Estimativa para apoio à decisão, baseada na regra de transição noticiada (42h e 5x2 em 60 dias; 40h em 14 meses após a promulgação). Salário mantido; divisor = jornada semanal × 5; mês de 52/12 semanas. Confirme o texto promulgado e a convenção coletiva antes de aplicar. Para salvar em PDF, abra este arquivo no navegador e use Imprimir.</p>'
+      +'<p class="m" style="margin-top:18px">Estimativa para apoio à decisão, baseada na regra de transição noticiada (42h e 5x2 em 2 meses; 40h em 14 meses após a publicação, conforme art. 6º da emenda). Salário mantido; divisor = jornada semanal × 5; mês de 52/12 semanas. Confirme o texto promulgado e a convenção coletiva antes de aplicar. Para salvar em PDF, abra este arquivo no navegador e use Imprimir.</p>'
       +'</body></html>';
   }
   var DL=null;
